@@ -29,5 +29,13 @@
   <p class="small muted">Default accounts (you can add/remove in code or use signup):<br>
   Supervisor: <code>super1 / sup123</code> — Executive: <code>admin1 / admin123</code></p>
 </main>
+<script>
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker
+      .register("service-worker.js")
+      .then(() => console.log("Service Worker registered"))
+      .catch((err) => console.log("Service Worker failed:", err));
+  }
+</script>
 </body>
 </html>
