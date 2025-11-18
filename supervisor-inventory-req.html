@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Supervisor — Material Requirements</title>
+
+  <!-- Tailwind & FontAwesome -->
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+
+  <!-- Shared CSS -->
+  <link rel="stylesheet" href="inventory-style.css" />
+  <link rel="stylesheet" href="nav.css" />
+</head>
+
+<body class="bg-gray-50">
+
+  <!-- 🌿 NAVBAR -->
+  <nav id="autoNav" class="auto-navbar">
+    <div class="max-w-6xl mx-auto flex justify-around items-center py-3 px-4">
+      <button class="nav-item" onclick="location.href='supervisor-inventory-issue.html'">
+        <i class="fa-solid fa-boxes-stacked text-lg"></i><span>Issue</span>
+      </button>
+      <button class="nav-item active" onclick="location.href='supervisor-inventory-req.html'">
+        <i class="fa-solid fa-file-circle-plus text-lg"></i><span>Request</span>
+      </button>
+      <button class="nav-item" onclick="location.href='supervisor-inventory-usage.html'">
+        <i class="fa-solid fa-chart-line text-lg"></i><span>Logs</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- HEADER -->
+  <header class="max-w-5xl mx-auto mt-20 px-4 text-center">
+    <h1 class="text-3xl font-bold text-teal-700">Material Requirements</h1>
+    <p class="text-gray-600 mt-1">Submit and view material requests for each month</p>
+  </header>
+
+  <!-- MAIN CONTENT -->
+  <main class="max-w-5xl mx-auto p-4">
+
+    <!-- 🌿 REQUIREMENT FORM -->
+    <section class="card">
+      <div class="flex justify-between items-center mb-4">
+        <div>
+          <h2 class="text-xl font-semibold text-teal-700">Raise Requirement</h2>
+          <p class="text-sm text-gray-500">Select material and submit for approval.</p>
+        </div>
+        <button id="clearReq" class="ghost"><i class="fa fa-eraser mr-1"></i> Clear</button>
+      </div>
+
+      <div class="grid md:grid-cols-3 gap-4">
+        <!-- Department -->
+        <div>
+          <label>Department</label>
+          <select id="reqDept">
+            <option value="">Select Department</option>
+            <option value="HK">Housekeeping</option>
+            <option value="Pantry">Pantry</option>
+            <option value="ME">Maintenance</option>
+            <option value="Security">Security</option>
+          </select>
+        </div>
+
+        <!-- Category -->
+        <div>
+          <label>Category</label>
+          <select id="reqCategory">
+            <option>Select Department first</option>
+          </select>
+        </div>
+
+        <!-- Material -->
+        <div>
+          <label>Material</label>
+          <select id="reqMaterial">
+            <option>Select Category first</option>
+          </select>
+        </div>
+
+        <!-- Qty -->
+        <div>
+          <label>Quantity</label>
+          <input id="reqQty" type="number" min="0.01" step="0.01" placeholder="Enter qty" />
+        </div>
+
+        <!-- Unit -->
+        <div>
+          <label>Unit</label>
+          <select id="reqUnit">
+            <option>Select Unit</option>
+          </select>
+        </div>
+
+        <!-- Month -->
+        <div>
+          <label>Month (For)</label>
+          <input id="reqMonth" type="month" />
+        </div>
+
+        <!-- Remarks -->
+        <div class="md:col-span-3">
+          <label>Remarks / Purpose</label>
+          <textarea id="reqRemarks" rows="2" placeholder="Optional remarks..."></textarea>
+        </div>
+
+        <!-- Submit -->
+        <div class="md:col-span-3 text-right">
+          <button id="btnSubmitReq" class="primary">
+            <i class="fa fa-paper-plane mr-1"></i> Submit Requirement
+          </button>
+        </div>
+      </div>
+
+      <div id="reqMsg" class="mt-3 text-sm text-center"></div>
+    </section>
+
+    <!-- 🌿 SUMMARY -->
+    <section class="card mt-6">
+
+      <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 gap-3">
+        <h2 class="text-xl font-semibold text-teal-700">All Requests Summary</h2>
+
+        <div class="flex items-center gap-2">
+          <label class="text-gray-700 text-sm">Month:</label>
+          <input id="monthFilter" type="month" class="border rounded px-2 py-1 text-sm">
+          <button id="reloadReq" class="ghost text-sm"><i class="fa fa-rotate-right mr-1"></i> Reload</button>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="bg-teal-600 text-white">
+            <tr>
+              <th class="p-2">SL</th>
+              <th class="p-2">Material</th>
+              <th class="p-2">Available</th>
+              <th class="p-2">Requested</th>
+              <th class="p-2">Status</th>
+            </tr>
+          </thead>
+          <tbody id="reqTable">
+            <tr><td colspan="5" class="p-3 text-center text-gray-400">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+    </section>
+  </main>
+
+  <!-- Bottom Nav -->
+  <div id="bottomNav" class="bottom-nav">
+    <button onclick="location.href='Home.html'"><i class="fa-solid fa-house"></i><span>Home</span></button>
+    <button onclick="location.href='supervisor-dashboard.html'"><i class="fa-solid fa-list-check"></i><span>Activity</span></button>
+    <button class="active" onclick="location.href='supervisor-inventory-req.html'"><i class="fa-solid fa-boxes-stacked"></i><span>Inventory</span></button>
+  </div>
+
+  <div id="toast"></div>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <script src="js/firebase-config.js"></script>
+
+  <!-- Shared JS -->
+  <script src="js/supervisor-common.js"></script>
+
+  <!-- PAGE SCRIPT -->
+  <script>
+    const db = window.db;
+    let inventoryCache = {};
+
+    const reqDept = document.getElementById("reqDept");
+    const reqCategory = document.getElementById("reqCategory");
+    const reqMaterial = document.getElementById("reqMaterial");
+    const reqQty = document.getElementById("reqQty");
+    const reqUnit = document.getElementById("reqUnit");
+    const reqMonth = document.getElementById("reqMonth");
+    const reqRemarks = document.getElementById("reqRemarks");
+    const reqMsg = document.getElementById("reqMsg");
+    const reqTable = document.getElementById("reqTable");
+    const monthFilter = document.getElementById("monthFilter");
+
+    /* ---------------- Load Categories ---------------- */
+    async function loadCategories() {
+      reqCategory.innerHTML = "<option>Loading...</option>";
+
+      const snap = await db.collection("categories")
+        .where("department", "==", reqDept.value)
+        .get();
+
+      reqCategory.innerHTML = "<option>Select Category</option>";
+
+      snap.forEach(doc => {
+        const d = doc.data();
+        reqCategory.innerHTML += `<option value="${d.categoryName}">${d.categoryName}</option>`;
+      });
+    }
+
+    /* ---------------- Load Materials ---------------- */
+    async function loadMaterials() {
+      reqMaterial.innerHTML = "<option>Loading...</option>";
+
+      const snap = await db.collection("inventory")
+        .where("department", "==", reqDept.value)
+        .where("category", "==", reqCategory.value)
+        .get();
+
+      reqMaterial.innerHTML = "<option>Select Material</option>";
+      inventoryCache = {};
+
+      snap.forEach(doc => {
+        inventoryCache[doc.id] = doc.data();
+        reqMaterial.innerHTML += `<option value="${doc.id}">${doc.data().materialName}</option>`;
+      });
+    }
+
+    /* ---------------- Populate Units ---------------- */
+    function populateUnits() {
+      reqUnit.innerHTML = "<option>Select Unit</option>";
+
+      const item = inventoryCache[reqMaterial.value];
+      if (!item) return;
+
+      const cat = (item.category || "").toLowerCase();
+      let units = [];
+
+      if (cat.includes("cleaning") && cat.includes("chemical"))
+        units = ["ml", "Litre"];
+      else
+        units = ["Nos", "pcs", "Kg", "g"];
+
+      if (item.containerUnit && !units.includes(item.containerUnit))
+        units.unshift(item.containerUnit);
+
+      units.forEach(u => reqUnit.innerHTML += `<option>${u}</option>`);
+    }
+
+    /* ---------------- Submit Request ---------------- */
+    document.getElementById("btnSubmitReq").addEventListener("click", async () => {
+      reqMsg.textContent = "";
+
+      const dept = reqDept.value;
+      const cat = reqCategory.value;
+      const mid = reqMaterial.value;
+      const qty = reqQty.value;
+      const unit = reqUnit.value;
+      const month = reqMonth.value;
+      const remarks = reqRemarks.value;
+
+      if (!dept || !cat || !mid || !qty || !unit || !month) {
+        reqMsg.textContent = "Please fill all fields";
+        reqMsg.className = "text-red-600";
+        return;
+      }
+
+      const item = inventoryCache[mid];
+
+      await db.collection("materialRequests").add({
+        materialId: mid,
+        materialName: item.materialName,
+        department: dept,
+        category: cat,
+        requestedQty: qty,
+        requestedUnit: unit,
+        monthFor: month,
+        remarks,
+        status: "Pending",
+        requestedBy: localStorage.getItem("supervisorName") || "Supervisor",
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+      toast("Requirement submitted");
+      reqMsg.textContent = "Submitted!";
+      reqMsg.className = "text-green-600";
+
+      loadAllRequests();
+    });
+
+    /* ---------------- Load Summary ---------------- */
+    async function loadAllRequests() {
+      reqTable.innerHTML =
+        `<tr><td colspan="5" class="p-3 text-center text-gray-500">Loading…</td></tr>`;
+
+      const month = monthFilter.value;
+      const snap = await db.collection("materialRequests")
+        .where("monthFor", "==", month)
+        .get();
+
+      if (snap.empty) {
+        reqTable.innerHTML =
+          `<tr><td colspan="5" class="p-3 text-center text-gray-500">No requests for ${month}</td></tr>`;
+        return;
+      }
+
+      reqTable.innerHTML = "";
+      let i = 1;
+
+      snap.forEach(doc => {
+        const d = doc.data();
+
+        let badge = "";
+        if (d.status === "Approved") {
+          badge = `<span class="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">Approved</span>`;
+        } else if (d.status === "Pending") {
+          badge = `<span class="px-2 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs">Pending</span>`;
+        } else if (d.status === "Rejected") {
+          badge = `<span class="px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs">Rejected</span>`;
+        } else {
+          badge = `<span class="px-2 py-1 bg-gray-200 text-gray-700 rounded-full text-xs">—</span>`;
+        }
+
+        reqTable.innerHTML += `
+          <tr class="border-b hover:bg-gray-50">
+            <td class="p-2">${i++}</td>
+            <td class="p-2">${d.materialName}</td>
+            <td class="p-2">—</td>
+            <td class="p-2">${d.requestedQty} ${d.requestedUnit}</td>
+            <td class="p-2">${badge}</td>
+          </tr>`;
+      });
+    }
+
+    /* ---------------- Events ---------------- */
+    reqDept.addEventListener("change", loadCategories);
+    reqCategory.addEventListener("change", loadMaterials);
+    reqMaterial.addEventListener("change", populateUnits);
+    document.getElementById("reloadReq").addEventListener("click", loadAllRequests);
+
+    document.getElementById("clearReq").addEventListener("click", () => {
+      reqDept.value = "";
+      reqCategory.innerHTML = "<option>Select Department first</option>";
+      reqMaterial.innerHTML = "<option>Select Category first</option>";
+      reqUnit.innerHTML = "<option>Select Unit</option>";
+      reqQty.value = "";
+      reqRemarks.value = "";
+      reqMsg.textContent = "";
+    });
+
+    /* ---------------- Init ---------------- */
+    const today = new Date().toISOString().slice(0, 7);
+    reqMonth.value = today;
+    monthFilter.value = today;
+    loadAllRequests();
+  </script>
+
+</body>
+</html>

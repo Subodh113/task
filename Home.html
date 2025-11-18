@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Supervisor — Home (Mobile)</title>
+
+<!-- Fonts & Icons -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+
+<!-- Navigation CSS (provided by you) -->
+<link rel="stylesheet" href="nav.css" />
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<style>
+  :root { --accent:#006666; --accent-2:#009999; --muted:#6b7280; }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
+    background:#f4f7f9;
+    padding-bottom:90px; /* room for bottom nav */
+    color:#0f172a;
+  }
+
+  header{
+    background:linear-gradient(90deg,var(--accent),var(--accent-2));
+    color:#fff;
+    padding:12px 14px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    position:sticky;
+    top:0;
+    z-index:1000;
+  }
+  header .brand{font-weight:700}
+  header .profile{display:flex;align-items:center;gap:8px;font-size:14px}
+
+  main{max-width:720px;margin:12px auto;padding:12px;display:flex;flex-direction:column;gap:12px}
+
+  .card{background:#fff;border-radius:12px;padding:12px;box-shadow:0 6px 18px rgba(0,0,0,0.06)}
+  .card h2{margin:0 0 10px;color:var(--accent);display:flex;align-items:center;gap:8px}
+  #greeting{font-weight:700;color:var(--accent-2);text-align:center;margin-bottom:6px}
+
+  /* Filter buttons (mobile friendly) */
+  .filter-row{display:flex;gap:8px;justify-content:center;margin:8px 0}
+  .filter-btn{
+    flex:1;
+    padding:8px 8px;border-radius:8px;border:0;background:#e8f9f8;color:var(--accent);
+    font-weight:700;cursor:pointer;font-size:14px
+  }
+  .filter-btn.active{background:var(--accent);color:#fff}
+
+  .kpi-row{display:flex;gap:8px}
+  .kpi{flex:1;background:linear-gradient(135deg,#e8faf8,#d6f3f0);padding:12px;border-radius:10px;text-align:center}
+  .kpi h3{margin:0;color:var(--accent);font-size:1.4rem}
+  .kpi p{margin:6px 0 0;color:var(--muted);font-size:13px}
+
+  .chart-box{background:#fff;padding:10px;border-radius:10px;box-shadow:inset 0 1px 0 rgba(0,0,0,0.02)}
+  .chart-title{font-weight:700;margin-bottom:8px;color:#0f172a}
+
+  .quick-links{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+  .quick-link{display:flex;align-items:center;justify-content:center;gap:8px;padding:10px;border-radius:10px;background:linear-gradient(90deg,#009999,#00777a);color:#fff;text-decoration:none;font-weight:700}
+
+  /* top performers small list */
+  .top-list{display:flex;flex-direction:column;gap:8px}
+  .top-item{display:flex;align-items:center;gap:10px;padding:8px;border-radius:8px;background:linear-gradient(90deg,#f8fffe,#f1fbfa)}
+  .medal{font-size:18px}
+
+  /* bottom nav (nav.css provides styling, ensure visible) */
+  .bottom-nav { position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%); width:92%; max-width:540px; z-index:999; }
+  .small-muted{color:var(--muted);font-size:13px}
+
+  @media(min-width:740px){
+    main{padding:18px}
+    .quick-links{grid-template-columns:repeat(4,1fr)}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">Supervisor</div>
+  <div class="profile" aria-live="polite">
+    <i class="fa-solid fa-user"></i>
+    <span id="supervisorName">Loading...</span>
+    <button id="logoutBtn" title="Logout" style="background:none;border:0;color:#fff;cursor:pointer;margin-left:6px;">
+      <i class="fa-solid fa-right-from-bracket"></i>
+    </button>
+  </div>
+</header>
+
+<main>
+  <!-- Department card -->
+  <section class="card">
+    <h2><i class="fa-solid fa-building-user"></i> Department</h2>
+    <div id="deptInfo" style="font-weight:700;color:var(--accent)">Loading…</div>
+  </section>
+
+  <!-- Greeting + Range -->
+  <section class="card">
+    <div id="greeting">Welcome!</div>
+
+    <div class="filter-row" role="tablist" aria-label="Range filter">
+      <button class="filter-btn active" data-range="today">Today</button>
+      <button class="filter-btn" data-range="week">Weekly</button>
+      <button class="filter-btn" data-range="month">Monthly</button>
+    </div>
+
+    <div class="kpi-row" style="margin-top:8px">
+      <div class="kpi">
+        <h3 id="completedKpi">0</h3>
+        <p>Completed</p>
+      </div>
+      <div class="kpi">
+        <h3 id="pendingKpi">0</h3>
+        <p>Pending</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7-day trend -->
+  <section class="card chart-box">
+    <div class="chart-title"><i class="fa-solid fa-chart-line"></i> 7-day Trend</div>
+    <canvas id="trendChart" height="120"></canvas>
+  </section>
+
+  <!-- Supervisor bar -->
+  <section class="card chart-box">
+    <div class="chart-title"><i class="fa-solid fa-user-group"></i> Supervisor Completed</div>
+    <canvas id="supChart" height="120"></canvas>
+  </section>
+
+  <!-- Top performers -->
+  <section class="card">
+    <h2><i class="fa-solid fa-trophy"></i> Top Performers</h2>
+    <div id="topList" class="top-list">
+      <div class="top-item small-muted">Loading…</div>
+    </div>
+  </section>
+
+  <!-- Quick links -->
+  <section class="card">
+    <h2><i class="fa-solid fa-bolt"></i> Quick Links</h2>
+    <div class="quick-links">
+      <a class="quick-link" href="supervisor-dashboard.html"><i class="fa-solid fa-list-check"></i> Activities</a>
+      <a class="quick-link" href="supervisor-inventory-issue.html"><i class="fa-solid fa-boxes-stacked"></i> Inventory</a>
+      <a class="quick-link" href="supervisor-inventory-req.html"><i class="fa-solid fa-file-circle-plus"></i> Requests</a>
+      <a class="quick-link" href="supervisor-inventory-usage.html"><i class="fa-solid fa-chart-line"></i> Usage Logs</a>
+    </div>
+  </section>
+</main>
+
+<!-- Bottom navigation (nav.css will style it) -->
+<div class="bottom-nav">
+  <button class="active" onclick="location.href='Home.html'"><i class="fa-solid fa-house"></i><span>Home</span></button>
+  <button onclick="location.href='supervisor-dashboard.html'"><i class="fa-solid fa-list-check"></i><span>Activity</span></button>
+  <button onclick="location.href='supervisor-inventory-issue.html'"><i class="fa-solid fa-boxes-stacked"></i><span>Inventory</span></button>
+</div>
+
+<!-- Toast -->
+<div id="toast" style="position:fixed;right:16px;bottom:18px;z-index:9999"></div>
+
+<!-- Firebase (compat) -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+
+<!-- Your config & helpers -->
+<script src="js/firebase-config.js"></script>
+<script src="js/supervisor-common.js"></script>
+
+<script>
+/* ----------------- Utilities ----------------- */
+const DB = window.db || (window.firebase && firebase.firestore && firebase.firestore());
+const AUTH = window.auth || (window.firebase && firebase.auth && firebase.auth());
+
+function safeLS(key){ try { return localStorage.getItem(key); } catch(e){ return null; } }
+function toast(msg, type='success'){ const el=document.getElementById('toast'); el.innerHTML = `<div style="background:${type==='error'?'#dc2626':'#06b6a4'};color:#fff;padding:8px 12px;border-radius:8px">${msg}</div>`; setTimeout(()=>el.innerHTML='',3000); }
+function escapeHtml(s){ if(!s) return ''; return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ---------- Date Ranges ---------- */
+function getRange(key){
+  const now = new Date();
+  now.setHours(0,0,0,0);
+  if(key==='today'){
+    const s = new Date(now);
+    const e = new Date(); e.setHours(23,59,59,999);
+    return { start:s, end:e, label: s.toISOString().slice(0,10) };
+  }
+  if(key==='week'){
+    const e = new Date(); e.setHours(23,59,59,999);
+    const s = new Date(); s.setDate(s.getDate()-6); s.setHours(0,0,0,0);
+    return { start:s, end:e, label: `${s.toISOString().slice(0,10)} → ${e.toISOString().slice(0,10)}` };
+  }
+  // month
+  const s = new Date(now.getFullYear(), now.getMonth(), 1); s.setHours(0,0,0,0);
+  const e = new Date(now.getFullYear(), now.getMonth()+1, 0); e.setHours(23,59,59,999);
+  return { start:s, end:e, label: `${s.toISOString().slice(0,10)} → ${e.toISOString().slice(0,10)}` };
+}
+
+/* ---------- Charts ---------- */
+let trendChart=null, supChart=null;
+function renderTrend(labels, values){
+  const ctx = document.getElementById('trendChart').getContext('2d');
+  if(trendChart) trendChart.destroy();
+  trendChart = new Chart(ctx, {
+    type:'line',
+    data:{ labels, datasets:[{ label:'Completed', data:values, tension:0.25, backgroundColor:'rgba(6,182,164,0.12)', borderColor:'#06b6a4', pointRadius:4 }] },
+    options:{ responsive:true, plugins:{legend:{display:false}}, scales:{ y:{ beginAtZero:true, precision:0 } } }
+  });
+}
+function renderSupervisors(labels, values){
+  const ctx = document.getElementById('supChart').getContext('2d');
+  if(supChart) supChart.destroy();
+  supChart = new Chart(ctx, {
+    type:'bar',
+    data:{ labels, datasets:[{ label:'Completed', data:values, backgroundColor:'#009999' }] },
+    options:{ responsive:true, plugins:{legend:{display:false}}, scales:{ y:{ beginAtZero:true, precision:0 } } }
+  });
+}
+
+/* ---------- Core: load data and render ---------- */
+async function loadHome(rangeKey='today'){
+  // Load name & dept from localStorage
+  const name = safeLS('supervisorName') || safeLS('name') || 'Supervisor';
+  const dept = safeLS('supervisorDept') || '-';
+  document.getElementById('supervisorName').textContent = name;
+  document.getElementById('deptInfo').textContent = dept;
+  const hour = new Date().getHours();
+  const greet = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening';
+  document.getElementById('greeting').textContent = `${greet}, ${name}!`;
+
+  // update active filter UI
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-range')===rangeKey));
+
+  // If DB not ready, bail gracefully
+  if(!DB || !firebase || !firebase.firestore){
+    console.warn('Firestore not available; skipping data load.');
+    toast('Firestore unavailable', 'error');
+    // set zeros
+    document.getElementById('completedKpi').textContent = '0';
+    document.getElementById('pendingKpi').textContent = '0';
+    renderTrend([],[]);
+    renderSupervisors([],[]);
+    document.getElementById('topList').innerHTML = '<div class="top-item small-muted">No data</div>';
+    return;
+  }
+
+  const { start, end } = getRange(rangeKey);
+  const startTs = firebase.firestore.Timestamp.fromDate(start);
+  const endTs = firebase.firestore.Timestamp.fromDate(end);
+
+  // Try range query by timestamp
+  let snap;
+  try{
+    snap = await DB.collection('submissions')
+      .where('timestamp','>=',startTs)
+      .where('timestamp','<=',endTs)
+      .orderBy('timestamp','desc')
+      .get();
+  }catch(err){
+    // fallback: load all and filter locally
+    console.warn('Range query failed, falling back to client-side filter:', err);
+    const all = await DB.collection('submissions').orderBy('timestamp','desc').get();
+    snap = all;
+  }
+
+  // Build docs array (normalize)
+  const docs = snap.docs.map(d => {
+    const data = d.data() || {};
+    const tsDate = data.timestamp && data.timestamp.toDate ? data.timestamp.toDate() : (data.date ? new Date(data.date) : null);
+    return { id:d.id, ...data, _tsDate: tsDate };
+  });
+
+  // Assigned = all docs in this range
+  const assignedCount = docs.length;
+
+  // Completed = docs that have photos array with length >0
+  const completedCount = docs.filter(r => Array.isArray(r.photos) && r.photos.length > 0).length;
+
+  // Pending = assigned - completed
+  const pendingCount = Math.max(assignedCount - completedCount, 0);
+
+  document.getElementById('completedKpi').textContent = completedCount;
+  document.getElementById('pendingKpi').textContent = pendingCount;
+
+  // Build 7-day trend (counts of completed per day)
+  // We'll run up to 7 small queries (fast) — safe for most installations
+  const labels = [];
+  const values = [];
+  try{
+    const promises = [];
+    for(let i=6;i>=0;i--){
+      const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate() - i);
+      labels.push(d.toLocaleDateString(undefined,{weekday:'short'}));
+      const s = firebase.firestore.Timestamp.fromDate(new Date(d.getFullYear(),d.getMonth(),d.getDate(),0,0,0,0));
+      const e = firebase.firestore.Timestamp.fromDate(new Date(d.getFullYear(),d.getMonth(),d.getDate(),23,59,59,999));
+      promises.push(DB.collection('submissions').where('timestamp','>=',s).where('timestamp','<=',e).get());
+    }
+    const results = await Promise.all(promises);
+    for(const r of results){
+      const c = r.docs.filter(doc => {
+        const data = doc.data();
+        return Array.isArray(data.photos) && data.photos.length > 0;
+      }).length;
+      values.push(c);
+    }
+  }catch(e){
+    console.warn('Trend queries failed, deriving from local docs fallback', e);
+    // derive from docs
+    const dayCounts = {};
+    docs.forEach(d => {
+      if(!d._tsDate) return;
+      const k = d._tsDate.toISOString().slice(0,10);
+      if(!dayCounts[k]) dayCounts[k] = 0;
+      if(Array.isArray(d.photos) && d.photos.length > 0) dayCounts[k]++;
+    });
+    const arrLabels = [];
+    const arrVals = [];
+    for(let i=6;i>=0;i--){
+      const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate() - i);
+      arrLabels.push(d.toLocaleDateString(undefined,{weekday:'short'}));
+      const k = d.toISOString().slice(0,10);
+      arrVals.push(dayCounts[k] || 0);
+    }
+    renderTrend(arrLabels, arrVals);
+  }
+  // If we have labels/values from successful queries, render
+  if(labels.length && values.length) renderTrend(labels, values);
+
+  // Supervisor aggregation for selected range (from docs)
+  const supMap = {};
+  docs.forEach(d => {
+    const sup = d.supervisor || 'Unknown';
+    if(!supMap[sup]) supMap[sup] = { completed:0, total:0 };
+    supMap[sup].total++;
+    if(Array.isArray(d.photos) && d.photos.length > 0) supMap[sup].completed++;
+  });
+
+  const supEntries = Object.keys(supMap).map(k => ({ name:k, ...supMap[k] }));
+  supEntries.sort((a,b) => b.completed - a.completed);
+
+  const supLabels = supEntries.map(s => s.name);
+  const supValues = supEntries.map(s => s.completed);
+  renderSupervisors(supLabels, supValues);
+
+  // Top performers UI (top 3)
+  const topList = document.getElementById('topList');
+  topList.innerHTML = '';
+  if(supEntries.length === 0){
+    topList.innerHTML = '<div class="top-item small-muted">No activity data</div>';
+  } else {
+    const medals = ['🥇','🥈','🥉'];
+    supEntries.slice(0,3).forEach((s, idx) => {
+      const el = document.createElement('div');
+      el.className = 'top-item';
+      el.innerHTML = `<div class="medal">${medals[idx]||''}</div>
+                      <div style="flex:1">
+                        <div style="font-weight:700">${escapeHtml(s.name)}</div>
+                        <div class="small-muted">${s.completed} completed</div>
+                      </div>`;
+      topList.appendChild(el);
+    });
+  }
+}
+
+/* ---------- Events ---------- */
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const range = btn.getAttribute('data-range');
+    loadHome(range);
+  });
+});
+
+/* ---------- Logout (preserve supervisorName) ---------- */
+document.getElementById('logoutBtn').addEventListener('click', () => {
+  // If you have a shared logout in supervisor-common.js, prefer it
+  if(typeof logoutSupervisor === 'function'){
+    // Our shared logout implementation should preserve name (if you've implemented that fix)
+    try { logoutSupervisor(); } catch(e){ console.warn(e); localSignOutFallback(); }
+    return;
+  }
+  localSignOutFallback();
+});
+function localSignOutFallback(){
+  // preserve supervisorName
+  const savedName = safeLS('supervisorName');
+  try { localStorage.clear(); } catch(e){ console.warn(e); }
+  if(savedName) localStorage.setItem('supervisorName', savedName);
+  if(AUTH && AUTH.signOut) AUTH.signOut().finally(()=> window.location.href='index.html');
+  else window.location.href='index.html';
+}
+
+/* ---------- Initial load ---------- */
+window.addEventListener('load', ()=> loadHome('today'));
+</script>
+</body>
+</html>

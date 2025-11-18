@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Softservice — Facility Login</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0ea5a4">
+
+  <!-- Icons -->
+  <link rel="icon" href="icons/icon-192.png" sizes="192x192">
+  <link rel="apple-touch-icon" href="icons/icon-512.png">
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-storage-compat.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script src="js/auth.js" defer></script>
+
+  <style>
+    :root {
+      --accent: #0ea5a4;
+      --bg: #f0fdfc;
+      --text: #1e293b;
+      --muted: #64748b;
+      --error: #ef4444;
+      --radius: 16px;
+    }
+    * { box-sizing: border-box; font-family: "Poppins", sans-serif; }
+    body {
+      background: var(--bg);
+      margin: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+
+    .card {
+      background: white;
+      padding: 2rem;
+      border-radius: var(--radius);
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+      animation: slideIn 0.5s ease;
+    }
+
+    @keyframes slideIn {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    h1 { text-align: center; margin-bottom: 0.25rem; color: var(--accent); }
+    p.muted {
+      text-align: center;
+      color: var(--muted);
+      margin-bottom: 1.5rem;
+    }
+
+    label { margin-bottom: 4px; display: block; color: var(--text); font-size: 0.9rem; }
+    input {
+      width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #d1d5db;
+      font-size: 1rem; margin-bottom: 1rem; transition: border-color 0.2s;
+    }
+    input:focus { border-color: var(--accent); outline: none; }
+
+    /* Login button with spinner */
+    .btn {
+      position: relative;
+      background: var(--accent);
+      color: white;
+      border: none;
+      width: 100%;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: 0.3s;
+      overflow: hidden;
+    }
+
+    .btn:hover { background: #0d9488; }
+
+    .btn.loading {
+      pointer-events: none;
+      background: #0b827f;
+      opacity: 0.9;
+    }
+
+    .btn.loading::after {
+      content: "";
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 3px solid white;
+      border-top-color: transparent;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin {
+      from { transform: translateY(-50%) rotate(0); }
+      to { transform: translateY(-50%) rotate(360deg); }
+    }
+
+    /* Install Button */
+    #installBtn {
+      margin-top: 10px;
+      background: white;
+      border: 2px solid var(--accent);
+      color: var(--accent);
+      display: none;
+    }
+    #installBtn:hover { background: #e8fdfc; }
+
+    /* Error Box */
+    #loginMsg {
+      text-align: center;
+      margin-top: 10px;
+      color: var(--error);
+      min-height: 20px;
+      font-size: 0.9rem;
+    }
+
+    footer {
+      text-align: center;
+      margin-top: 1.5rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Login Card -->
+  <main class="card">
+    <h1>🔐 Login</h1>
+    <p class="muted">Facility management secure access</p>
+
+    <label>Email</label>
+    <input id="email" type="email" placeholder="example@jll.com">
+
+    <label>Password</label>
+    <input id="password" type="password" placeholder="Enter password">
+
+    <button id="loginBtn" class="btn">Sign In</button>
+    <button id="installBtn" class="btn">📲 Install App</button>
+
+    <div id="loginMsg"></div>
+
+    <footer>
+      Admin can create supervisor accounts<br>© 2025 Facility Management
+    </footer>
+  </main>
+
+  <!-- PWA + Spinner Logic -->
+  <script>
+    /* -------------------- Service Worker -------------------- */
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register("service-worker.js");
+    }
+
+    /* -------------------- PWA Install -------------------- */
+    let deferredPrompt;
+    const installBtn = document.getElementById("installBtn");
+
+    window.addEventListener("beforeinstallprompt", (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      installBtn.style.display = "block";
+    });
+
+    installBtn.addEventListener("click", async () => {
+      if (!deferredPrompt) return;
+
+      installBtn.style.display = "none";
+      deferredPrompt.prompt();
+      await deferredPrompt.userChoice;
+      deferredPrompt = null;
+    });
+
+    /* -------------------- Login Spinner -------------------- */
+    const loginBtn = document.getElementById("loginBtn");
+
+    loginBtn.addEventListener("click", () => {
+      loginBtn.classList.add("loading");
+      document.getElementById("loginMsg").textContent = "";
+
+      // Remove loading after 8s if something hangs
+      setTimeout(() => loginBtn.classList.remove("loading"), 8000);
+    });
+  </script>
+
+</body>
+</html>

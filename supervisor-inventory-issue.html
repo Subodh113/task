@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Supervisor — Issue Materials</title>
+
+  <!-- Tailwind & FontAwesome -->
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+
+  <!-- Shared Styles -->
+  <link rel="stylesheet" href="inventory-style.css">
+   <link rel="stylesheet" href="nav.css">
+</head>
+
+<body class="bg-gray-50">
+
+  <!-- 🌿 Auto-Hide Top Navbar -->
+  <nav id="autoNav" class="auto-navbar">
+    <div class="max-w-6xl mx-auto flex justify-around items-center py-3 px-4">
+      <button class="nav-item active" onclick="location.href='supervisor-inventory-issue.html'">
+        <i class="fa-solid fa-boxes-stacked text-lg"></i>
+        <span class="font-medium">Issue</span>
+      </button>
+      <button class="nav-item" onclick="location.href='supervisor-inventory-req.html'">
+        <i class="fa-solid fa-file-circle-plus text-lg"></i>
+        <span class="font-medium">Request</span>
+      </button>
+      <button class="nav-item" onclick="location.href='supervisor-inventory-usage.html'">
+        <i class="fa-solid fa-chart-line text-lg"></i>
+        <span class="font-medium">Logs</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Header -->
+  <header class="max-w-5xl mx-auto mt-6 px-4 text-center">
+    <h1 class="text-3xl font-bold text-teal-700">Issue Materials</h1>
+    <p class="text-gray-600 mt-1">Issue directly and update your department stock instantly</p>
+  </header>
+
+  <!-- Main -->
+  <main class="max-w-5xl mx-auto p-4">
+    <section class="card">
+      <div class="flex justify-between items-center mb-4">
+        <div>
+          <h2 class="text-xl font-semibold text-teal-700">Issue Material</h2>
+          <p class="text-sm text-gray-500">Choose department, material, and issue quantity.</p>
+        </div>
+        <button id="clearIssue" class="ghost"><i class="fa fa-eraser mr-1"></i> Clear</button>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-4">
+
+        <div>
+          <label>Department</label>
+          <select id="issueDept">
+            <option value="">Select Department</option>
+            <option value="HK">Housekeeping</option>
+            <option value="Pantry">Pantry</option>
+            <option value="ME">Maintenance</option>
+            <option value="Security">Security</option>
+          </select>
+        </div>
+
+        <div>
+          <label>Category</label>
+          <select id="issueCategory"><option value="">Select Department first</option></select>
+        </div>
+
+        <div>
+          <label>Material</label>
+          <select id="issueMaterial"><option value="">Select Category first</option></select>
+        </div>
+
+        <div>
+          <label>Unit</label>
+          <select id="issueUnit"><option value="">Select Unit</option></select>
+        </div>
+
+        <div>
+          <label>Quantity</label>
+          <input id="issueQty" type="number" step="0.01" min="0.01" placeholder="Enter qty" />
+        </div>
+
+        <div>
+          <label>Purpose</label>
+          <input id="issuePurpose" placeholder="e.g. Cleaning Restroom" />
+        </div>
+
+        <div class="md:col-span-2">
+          <label>Remarks</label>
+          <textarea id="issueRemarks" rows="2" placeholder="Optional remarks..."></textarea>
+        </div>
+
+        <div class="md:col-span-2 text-right">
+          <button id="btnIssue" class="primary"><i class="fa fa-paper-plane mr-1"></i> Submit Issue</button>
+        </div>
+      </div>
+
+      <div id="issueMsg" class="mt-3 text-sm text-center"></div>
+      <div id="matInfo" class="info mt-3 hidden"></div>
+
+    </section>
+  </main>
+
+  <!-- 🌿 Bottom Nav -->
+  <div id="bottomNav" class="bottom-nav">
+    <button onclick="window.location.href='Home.html'">
+      <i class="fa-solid fa-house"></i>
+      <span>Home</span>
+    </button>
+    <button onclick="window.location.href='supervisor-dashboard.html'">
+      <i class="fa-solid fa-list-check"></i>
+      <span>Activity</span>
+    </button>
+    <button class="active" onclick="window.location.href='supervisor-inventory-issue.html'">
+      <i class="fa-solid fa-boxes-stacked"></i>
+      <span>Inventory</span>
+    </button>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toast" class="fixed right-4 bottom-4 z-50"></div>
+
+  <!-- Firebase Compat SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+
+  <!-- Firebase config FIRST -->
+  <script src="js/firebase-config.js"></script>
+
+  <!-- Shared common utilities -->
+  <script src="js/supervisor-common.js"></script>
+
+  <!-- Page Script -->
+  <script>
+    /* ------------------------------------------------------------------
+       Firestore DB handle
+    ------------------------------------------------------------------ */
+    const db = window.db;
+
+    if (!db) console.error("Firestore not initialized — check firebase-config.js");
+
+    /* Cached Inventory */
+    let inventoryCache = {};
+
+    /* Elements */
+    const issueDept = qs("#issueDept");
+    const issueCategory = qs("#issueCategory");
+    const issueMaterial = qs("#issueMaterial");
+    const issueUnit = qs("#issueUnit");
+    const issueQty = qs("#issueQty");
+    const issuePurpose = qs("#issuePurpose");
+    const issueRemarks = qs("#issueRemarks");
+    const issueMsg = qs("#issueMsg");
+    const matInfo = qs("#matInfo");
+
+    /* ------------------------------------------------------------------
+       Load Categories
+    ------------------------------------------------------------------ */
+    async function loadCategories() {
+      issueCategory.innerHTML = "<option>Loading...</option>";
+
+      try {
+        const snap = await db.collection("categories")
+          .where("department", "==", issueDept.value)
+          .get();
+
+        issueCategory.innerHTML = '<option value="">Select Category</option>';
+
+        snap.forEach(doc => {
+          const d = doc.data();
+          issueCategory.innerHTML += `<option>${escapeHtml(d.categoryName)}</option>`;
+        });
+
+      } catch (err) {
+        console.error(err);
+        issueCategory.innerHTML = "<option>Error loading</option>";
+      }
+    }
+
+    /* ------------------------------------------------------------------
+       Load Materials
+    ------------------------------------------------------------------ */
+    async function loadMaterials() {
+      issueMaterial.innerHTML = "<option>Loading...</option>";
+
+      try {
+        const snap = await db.collection("inventory")
+          .where("department", "==", issueDept.value)
+          .where("category", "==", issueCategory.value)
+          .get();
+
+        inventoryCache = {};
+        issueMaterial.innerHTML = '<option value="">Select Material</option>';
+
+        snap.forEach(doc => {
+          const data = doc.data();
+          inventoryCache[doc.id] = data;
+
+          const available = formatReadable(data.receivedQty || 0, data.containerUnit);
+          issueMaterial.innerHTML += `<option value="${doc.id}">
+            ${escapeHtml(data.materialName)} — ${escapeHtml(available)}
+          </option>`;
+        });
+
+      } catch (err) {
+        console.error(err);
+        issueMaterial.innerHTML = "<option>Error loading</option>";
+      }
+    }
+
+    /* ------------------------------------------------------------------
+       Populate Units based on selected material
+    ------------------------------------------------------------------ */
+    function populateUnits() {
+      issueUnit.innerHTML = '<option value="">Select Unit</option>';
+
+      const data = inventoryCache[issueMaterial.value];
+      if (!data) return;
+
+      let units = ["Nos", "pcs", "Kg", "g"];
+
+      const cat = (data.category || "").toLowerCase();
+      if (cat.includes("cleaning") && cat.includes("chemical")) {
+        units = ["ml", "Litre"];
+      }
+
+      if (data.containerUnit && !units.includes(data.containerUnit)) {
+        units.unshift(data.containerUnit);
+      }
+
+      units.forEach(u => issueUnit.innerHTML += `<option>${u}</option>`);
+
+      matInfo.classList.remove("hidden");
+      matInfo.innerHTML = `
+        <strong>${escapeHtml(data.materialName)}</strong><br>
+        Dept: ${escapeHtml(data.department)}<br>
+        Category: ${escapeHtml(data.category)}<br>
+        Available: ${escapeHtml(formatReadable(data.receivedQty, data.containerUnit))}
+      `;
+    }
+
+    /* ------------------------------------------------------------------
+       Submit Issue
+    ------------------------------------------------------------------ */
+    qs("#btnIssue").addEventListener("click", async () => {
+
+      issueMsg.textContent = "";
+      issueMsg.className = "";
+
+      const dept = issueDept.value;
+      const cat = issueCategory.value;
+      const mid = issueMaterial.value;
+
+      const unit = issueUnit.value;
+      const qty = parseFloat(issueQty.value || 0);
+
+      const purpose = issuePurpose.value.trim();
+      const remarks = issueRemarks.value.trim();
+
+      if (!dept || !cat || !mid || !unit || !qty || qty <= 0) {
+        issueMsg.textContent = "Please fill all required fields";
+        issueMsg.className = "text-red-600";
+        return;
+      }
+
+      const item = inventoryCache[mid];
+      if (!item) {
+        issueMsg.textContent = "Item not found";
+        issueMsg.className = "text-red-600";
+        return;
+      }
+
+      const issuedBase = toBaseQty(qty, unit);
+      const available = item.receivedQty || 0;
+
+      if (issuedBase > available) {
+        issueMsg.textContent = "Insufficient stock";
+        issueMsg.className = "text-red-600";
+        return;
+      }
+
+      try {
+        // Log_issue
+        await db.collection("issuedItems").add({
+          materialId: mid,
+          materialName: item.materialName,
+          department: dept,
+          category: cat,
+          issuedQty: qty,
+          issuedUnit: unit,
+          deductedQtyInInvUnit: issuedBase,
+          inventoryUnit: item.containerUnit,
+          purpose,
+          remarks,
+          supervisor: localStorage.getItem("supervisorName") || "Supervisor",
+          date: new Date().toISOString().split("T")[0],
+          timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        // Update inventory
+        await db.runTransaction(async (tx) => {
+          const ref = db.collection("inventory").doc(mid);
+          const snap = await tx.get(ref);
+
+          const curQty = snap.data().receivedQty || 0;
+          const newQty = curQty - issuedBase;
+
+          if (newQty < 0) throw new Error("Negative inventory not allowed");
+          tx.update(ref, { receivedQty: newQty });
+        });
+
+        toast("Material issued");
+
+        issueQty.value = "";
+        issuePurpose.value = "";
+        issueRemarks.value = "";
+        matInfo.classList.add("hidden");
+
+        loadMaterials();
+
+      } catch (err) {
+        console.error(err);
+        toast("Issue failed", "error");
+        issueMsg.textContent = err.message || "Error";
+        issueMsg.className = "text-red-600";
+      }
+
+    });
+
+    /* ------------------------------------------------------------------
+       Event Listeners
+    ------------------------------------------------------------------ */
+
+    issueDept.addEventListener("change", () => {
+      issueCategory.innerHTML = '<option>Select Department first</option>';
+      issueMaterial.innerHTML = '<option>Select Category first</option>';
+      issueUnit.innerHTML = '<option>Select Unit</option>';
+      matInfo.classList.add("hidden");
+      issueMsg.textContent = "";
+      loadCategories();
+    });
+
+    issueCategory.addEventListener("change", () => {
+      issueMaterial.innerHTML = '<option>Select Category first</option>';
+      issueUnit.innerHTML = '<option>Select Unit</option>';
+      matInfo.classList.add("hidden");
+      issueMsg.textContent = "";
+      loadMaterials();
+    });
+
+    issueMaterial.addEventListener("change", () => {
+      issueUnit.innerHTML = '<option>Select Unit</option>';
+      issueMsg.textContent = "";
+      populateUnits();
+    });
+
+    /* Clear Form */
+    qs("#clearIssue").addEventListener("click", () => {
+      issueDept.value = "";
+      issueCategory.innerHTML = '<option>Select Department first</option>';
+      issueMaterial.innerHTML = '<option>Select Category first</option>';
+      issueUnit.innerHTML = '<option>Select Unit</option>';
+      issueQty.value = "";
+      issuePurpose.value = "";
+      issueRemarks.value = "";
+      issueMsg.textContent = "";
+      matInfo.classList.add("hidden");
+    });
+  </script>
+
+</body>
+</html>

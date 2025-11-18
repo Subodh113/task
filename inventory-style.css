@@ -1,0 +1,131 @@
+/* 🌿 SUPERVISOR DASHBOARD STYLES */
+body {
+  font-family: "Poppins", system-ui;
+  background: linear-gradient(135deg, #f0fdfa, #ecfeff);
+  color: #0f172a;
+  scroll-behavior: smooth;
+}
+
+/* 🌿 Auto-Hide Top Navbar */
+.auto-navbar {
+  transform: translateY(0);
+  transition: transform 0.4s ease, background 0.3s ease;
+  background: linear-gradient(90deg, #0d9488, #14b8a6);
+  color: white;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+}
+.auto-navbar.hidden {
+  transform: translateY(-100%);
+}
+.auto-navbar .nav-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 30px;
+  transition: all 0.3s ease;
+}
+.auto-navbar .nav-item:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+.auto-navbar .nav-item.active {
+  background: white;
+  color: #0d9488;
+  font-weight: 600;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
+}
+
+/* 🌿 Card & Input Styling */
+.card {
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 14px;
+  padding: 18px;
+  box-shadow: 0 8px 24px rgba(2, 6, 23, 0.08);
+  backdrop-filter: blur(10px);
+  animation: fadeIn 0.5s ease-in-out;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+label {
+  font-weight: 600;
+  display: block;
+  margin-top: 10px;
+  color: #0f172a;
+}
+
+input, select, textarea {
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #d1fae5;
+  background: white;
+  color: #0f172a;
+  transition: all 0.3s ease;
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: #0d9488;
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.2);
+}
+
+/* 🌿 Buttons */
+button.primary {
+  background: linear-gradient(90deg, #0d9488, #14b8a6);
+  color: white;
+  padding: 12px 22px;
+  border-radius: 10px;
+  font-weight: 700;
+  border: none;
+  transition: all 0.3s ease;
+}
+button.primary:hover {
+  transform: translateY(-2px);
+  animation: pulse 1.3s infinite;
+}
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(13, 148, 136, 0.5); }
+  70% { box-shadow: 0 0 0 10px rgba(13, 148, 136, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(13, 148, 136, 0); }
+}
+
+button.ghost {
+  background: white;
+  border: 1px solid #e5e7eb;
+  color: #0f172a;
+  padding: 8px 14px;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+button.ghost:hover {
+  background: #ecfeff;
+}
+
+.info {
+  background: #ecfdf5;
+  border-left: 4px solid #10b981;
+  padding: 10px;
+  border-radius: 8px;
+  color: #064e3b;
+}
+
+/* 🌿 Layout Padding */
+main {
+  padding-top: 90px;
+  padding-bottom: 120px;
+}
+
+main::after {
+  content: "";
+  display: block;
+  height: 80px;
+}

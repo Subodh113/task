@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Supervisor — Usage Logs</title>
+
+<!-- Tailwind & FontAwesome -->
+<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+
+<!-- Shared CSS (your central styles) -->
+<link rel="stylesheet" href="inventory-style.css">
+<link rel="stylesheet" href="nav.css">
+
+<!-- local tweaks kept small & scoped -->
+<style>
+/* Keep a couple of layout tweaks in case supervisor-style.css doesn't cover them */
+.controls-row { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+.controls-row .group { display:flex; gap:8px; align-items:center; }
+.controls-row select, .controls-row input { min-width:140px; }
+.card { margin-top: 6px; }
+@media (max-width:640px){
+  .controls-row { gap:8px; }
+  .controls-row select { min-width:120px; }
+}
+</style>
+</head>
+
+<body>
+
+<!-- Top nav is provided by shared CSS/JS; keep id/class so supervisor-common.js can control -->
+<nav id="autoNav" class="auto-navbar">
+  <div class="max-w-6xl mx-auto flex justify-around items-center py-3 px-4">
+    <button class="nav-item" onclick="location.href='supervisor-inventory-issue.html'">
+      <i class="fa-solid fa-boxes-stacked text-lg"></i><span>Issue</span>
+    </button>
+    <button class="nav-item" onclick="location.href='supervisor-inventory-req.html'">
+      <i class="fa-solid fa-file-circle-plus text-lg"></i><span>Request</span>
+    </button>
+    <button class="nav-item active" onclick="location.href='supervisor-inventory-usage.html'">
+      <i class="fa-solid fa-chart-line text-lg"></i><span>Logs</span>
+    </button>
+  </div>
+</nav>
+
+<header class="max-w-5xl mx-auto mt-24 px-4 text-center">
+  <h1 class="text-3xl font-bold text-teal-700">Material Usage Logs</h1>
+  <p class="text-gray-600 mt-1">Monitor issued materials and available stock</p>
+</header>
+
+<main class="max-w-5xl mx-auto p-4">
+  <section class="card">
+    <!-- controls row: filter range + department + refresh (aligned) -->
+    <div class="controls-row">
+      <div class="group">
+        <label class="font-semibold text-gray-700">Range</label>
+        <select id="filterRange" class="rounded px-2 py-1">
+          <option value="month" selected>Last 30 Days</option>
+          <option value="week">Last 7 Days</option>
+          <option value="today">Today</option>
+        </select>
+      </div>
+
+      <div class="group">
+        <label class="font-semibold text-gray-700">Department</label>
+        <select id="deptFilter" class="rounded px-2 py-1">
+          <option value="All">All</option>
+          <option value="HK">Housekeeping</option>
+          <option value="Pantry">Pantry</option>
+          <option value="ME">Maintenance</option>
+          <option value="Security">Security</option>
+        </select>
+      </div>
+
+      <div style="margin-left:auto">
+        <button id="refreshBtn" class="primary"><i class="fa fa-rotate-right mr-1"></i> Refresh</button>
+      </div>
+    </div>
+
+    <div class="overflow-x-auto mt-4">
+      <table class="min-w-full">
+        <thead>
+          <tr><th class="p-2">SL</th><th class="p-2">Material</th><th class="p-2">Used</th><th class="p-2">Available</th></tr>
+        </thead>
+        <tbody id="usageTable"><tr><td colspan="4" class="text-center p-4 text-gray-400">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<!-- bottom nav controlled by shared CSS -->
+<div id="bottomNav" class="bottom-nav">
+  <button onclick="location.href='Home.html'"><i class="fa-solid fa-house"></i><span>Home</span></button>
+  <button onclick="location.href='supervisor-dashboard.html'"><i class="fa-solid fa-list-check"></i><span>Activity</span></button>
+  <button class="active" onclick="location.href='supervisor-inventory-usage.html'"><i class="fa-solid fa-boxes-stacked"></i><span>Inventory</span></button>
+</div>
+
+<div id="toast" class="fixed right-4 bottom-4 z-50"></div>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+
+<!-- shared common JS (for navbar behaviour, toast helpers, etc.) -->
+<script src="supervisor-common.js"></script>
+<script src="js/firebase-config.js"></script>
+<script>
+// ---------- Firebase Config (same as before) ----------
+
+if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+// small helper (keeps same output format you had)
+function toastLocal(msg, type='success'){
+  const t=document.getElementById('toast');
+  const bg= type==='error' ? 'bg-red-600':'bg-green-600';
+  t.innerHTML=`<div class="${bg} text-white px-4 py-2 rounded shadow">${msg}</div>`;
+  setTimeout(()=>t.innerHTML='',3000);
+}
+function formatReadable(val,unit){
+  if(val==null) return '-';
+  const u=(unit||'').toLowerCase();
+  if(u==='ml') return `${Math.round(val)} ml`;
+  if(u==='litre'||u==='l') return `${(val/1000).toFixed(2)} L`;
+  if(u==='g'||u==='kg') return val>=1000?`${(val/1000).toFixed(2)} kg`:`${val} g`;
+  return `${val} ${unit||''}`;
+}
+
+// ---------- Load Usage (department filter fixed) ----------
+async function loadUsage(){
+  const usageTable = document.getElementById('usageTable');
+  usageTable.innerHTML = '<tr><td colspan="4" class="text-center p-4">Loading…</td></tr>';
+
+  const range = document.getElementById('filterRange').value;
+  const dept = document.getElementById('deptFilter').value;
+
+  // compute sinceDate
+  let sinceDate = new Date();
+  if(range==='today') sinceDate.setHours(0,0,0,0);
+  else if(range==='week') sinceDate.setDate(sinceDate.getDate()-7);
+  else sinceDate.setDate(sinceDate.getDate()-30);
+
+  try{
+    // 1) fetch inventory filtered by department (if selected)
+    let invQuery = db.collection('inventory');
+    if(dept !== 'All') invQuery = invQuery.where('department','==',dept);
+    const invSnap = await invQuery.get();
+    const inventoryMap = {}; // materialId -> inventory doc data
+    invSnap.forEach(d=> inventoryMap[d.id] = d.data());
+
+    // If no inventory for that department -> show no data
+    const inventoryIds = Object.keys(inventoryMap);
+    if(inventoryIds.length === 0){
+      usageTable.innerHTML = `<tr><td colspan="4" class="text-center p-4 text-gray-500">No inventory items for ${dept === 'All'? 'selected filters' : dept}.</td></tr>`;
+      return;
+    }
+
+    // 2) fetch issued items since date (no dept filter here) - then we'll only count those matching inventoryIds
+    let issuedQuery = db.collection('issuedItems')
+      .where('timestamp','>=', firebase.firestore.Timestamp.fromDate(sinceDate));
+    // avoid applying department on issuedItems query in case some issued documents don't include department
+    const issuedSnap = await issuedQuery.get();
+
+    // accumulate used quantities per materialId (only for inventory items we care about)
+    const usedMap = {};
+    issuedSnap.forEach(doc=>{
+      const d = doc.data();
+      // only include issued records whose materialId is present in the filtered inventoryMap
+      if(d.materialId && inventoryMap[d.materialId]){
+        usedMap[d.materialId] = (usedMap[d.materialId] || 0) + (d.deductedQtyInInvUnit || 0);
+      }
+    });
+
+    // 3) prepare rows from inventoryMap (only those materials in chosen dept)
+    const rows = [];
+    for(const id of inventoryIds){
+      const inv = inventoryMap[id];
+      const used = usedMap[id] || 0;
+      const availRaw = inv.availableQty != null ? inv.availableQty : (inv.receivedQty != null ? inv.receivedQty : 0);
+      rows.push({
+        material: inv.materialName || '-',
+        usedVal: used,
+        availVal: availRaw,
+        unit: inv.containerUnit || ''
+      });
+    }
+
+    // sort by material name
+    rows.sort((a,b)=> (a.material || '').localeCompare(b.material || ''));
+
+    // render
+    usageTable.innerHTML = '';
+    let sl = 1;
+    rows.forEach(r=>{
+      usageTable.innerHTML += `
+        <tr>
+          <td class="p-2">${sl++}</td>
+          <td class="p-2">${r.material}</td>
+          <td class="p-2">${formatReadable(r.usedVal, r.unit)}</td>
+          <td class="p-2">${formatReadable(r.availVal, r.unit)}</td>
+        </tr>
+      `;
+    });
+
+  }catch(err){
+    console.error('Load usage error', err);
+    toastLocal('Failed to load usage data','error');
+    usageTable.innerHTML = '<tr><td colspan="4" class="text-center p-4 text-red-600">Error loading data</td></tr>';
+  }
+}
+
+// ---------- Events ----------
+document.getElementById('refreshBtn').addEventListener('click', loadUsage);
+document.getElementById('filterRange').addEventListener('change', loadUsage);
+document.getElementById('deptFilter').addEventListener('change', loadUsage);
+
+// ---------- Auto-hide handled by supervisor-common.js; ensure it hooks to #autoNav and #bottomNav ----------
+// If your supervisor-common.js defines init behavior, you can call it (it's safe if it repeats)
+if(typeof initCommon === 'function') {
+  try { initCommon(); } catch(e){ /* ignore */ }
+}
+
+// ---------- Init ----------
+loadUsage();
+</script>
+</body>
+</html>
